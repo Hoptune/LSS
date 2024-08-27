@@ -77,6 +77,13 @@ parser.add_argument("--apply_map_veto", help="apply vetos to data and randoms ba
 parser.add_argument("--use_map_veto", help="string to include in full file name denoting whether map veto was applied",default='_HPmapcut')
 parser.add_argument("--add_tlcomp", help="add completeness FRAC_TLOBS_TILES to randoms",default='n')
 
+parser.add_argument("--bgs_zmin", help="minimum redshift for BGS_BRIGHT", default=0.01, type=float) 
+parser.add_argument("--bgs_zmax", help="maximum redshift for BGS_BRIGHT", default=0.5, type=float)
+
+parser.add_argument("--bgs_mag_bright", help="bright magnitude cut for BGS_BRIGHT-21.5", default=-99.0, type=float)
+parser.add_argument("--bgs_mag_faint", help="bright magnitude cut for BGS_BRIGHT-21.5", default=-21.5, type=float)
+parser.add_argument("--bgs_mag_zmin", help="minimum redshift for BGS_BRIGHT-21.5", default=0.1, type=float) 
+parser.add_argument("--bgs_mag_zmax", help="maximum redshift for BGS_BRIGHT-21.5", default=0.4, type=float)
 
 
 parser.add_argument("--fillran", help="add imaging properties to randoms",default='n')
@@ -596,7 +603,8 @@ if type == 'BGS_BRIGHT-21.5':# and args.survey == 'Y1': #and args.clusd == 'y':
         if args.absmagmd == 'phot':
             sel = fin['ABSMAG_RP1'] < -21.5
         if args.absmagmd == 'spec':
-            sel = (fin['ABSMAG01_SDSS_R'] +0.97*fin['Z_not4clus']-.095) < -21.5
+            sel = ((fin['ABSMAG01_SDSS_R'] +0.97*fin['Z_not4clus']-.095) < args.bgs_mag_faint) & \
+                  ((fin['ABSMAG01_SDSS_R'] +0.97*fin['Z_not4clus']-.095) > args.bgs_mag_bright) #-21.5
             #sys.exit('need to code up using fastspecfit for abs mag selection!')
         if args.absmagmd == 'nok':
             #don't use any k-correction at all, yields ~constant density
@@ -750,14 +758,18 @@ if type[:3] == 'LRG':
     else:
         zrl = [(0.4,1.1)]  
 if type == 'BGS_BRIGHT-21.5':
-    zrl = [(0.1,0.4)]
+    # zrl = [(0.1,0.4)]
+    zrl = [(args.bgs_zmin,args.bgs_zmax)]
+    zmin = args.bgs_zmin
+    zmax = args.bgs_zmax
 elif type[:3] == 'BGS':
-    zrl = [(0.01,0.5)]
-    zmin = 0.01
-    zmax = 0.5    
-
-
-
+    # zrl = [(0.01,0.5)]
+    # zmin = 0.01
+    # zmax = 0.5    
+    zrl = [(args.bgs_zmin,args.bgs_zmax)]
+    zmin = args.bgs_zmin
+    zmax = args.bgs_zmax
+    
 if args.prepsysnet == 'y' or args.regressis == 'y' or args.imsys == 'y':
     
     debv = common.get_debv()
@@ -1201,7 +1213,10 @@ if type == 'QSO':
     #zmax = 4.5
     dz = 0.02
     P0 = 6000
-    
+elif type[:3] == 'BGS':
+    dz = 0.01
+    if zrl[0][1]<0.15:
+        dz = 0.005
 else:    
     dz = 0.01
     #zmin = 0.01
