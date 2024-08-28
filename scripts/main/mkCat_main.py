@@ -759,9 +759,10 @@ if type[:3] == 'LRG':
         zrl = [(0.4,1.1)]  
 if type == 'BGS_BRIGHT-21.5':
     # zrl = [(0.1,0.4)]
-    zrl = [(args.bgs_zmin,args.bgs_zmax)]
-    zmin = args.bgs_zmin
-    zmax = args.bgs_zmax
+    zrl = [(args.bgs_mag_zmin,args.bgs_mag_zmax)]
+    zmin = args.bgs_mag_zmin
+    zmax = args.bgs_mag_zmax
+    
 elif type[:3] == 'BGS':
     # zrl = [(0.01,0.5)]
     # zmin = 0.01
