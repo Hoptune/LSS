@@ -1416,7 +1416,7 @@ def write_LSS_scratchcp(ff, outf, comments=None,extname='LSS',logger=None):
         else:
             logger.info('read failed, output corrupted?! '+tmpfn)
         return 'FAILED'    
-    os.system('cp ' + tmpfn + ' ' + outf) 
+    os.system('cp -f ' + tmpfn + ' ' + outf) 
     os.system('chmod 775 ' + outf) #this should fix permissions for the group
     if logger is None:
         print('moved output to ' + outf)
