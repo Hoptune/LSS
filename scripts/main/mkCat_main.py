@@ -228,8 +228,8 @@ ebits = mainp.ebits #extra mask bits we think should be applied
 tsnrcut = mainp.tsnrcut
 dchi2 = mainp.dchi2
 if type in ['BGS_BRIGHT-21.5', 'BGS_BRIGHT_MSTAR']:
-    print(f"Using self-defined dchi2: {dchi2}")
     dchi2 = args.bgs_dchi2
+    print(f"Using self-defined dchi2: {dchi2}")
 tsnrcol = mainp.tsnrcol        
 zmin = mainp.zmin
 zmax = mainp.zmax
