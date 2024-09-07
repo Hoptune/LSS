@@ -84,6 +84,7 @@ parser.add_argument("--bgs_propcut_low", help="bgs property cut for BGS_BRIGHT-2
 parser.add_argument("--bgs_propcut_high", help="bright magnitude cut for BGS_BRIGHT-21.5 or BGS_BRIGHT_MSTAR, could be absolute magnitudes or stellar masses", default=-21.5, type=float)
 parser.add_argument("--bgs_mag_zmin", help="minimum redshift for BGS_BRIGHT-21.5 or BGS_BRIGHT_MSTAR", default=0.1, type=float) 
 parser.add_argument("--bgs_mag_zmax", help="maximum redshift for BGS_BRIGHT-21.5 or BGS_BRIGHT_MSTAR", default=0.4, type=float)
+parser.add_argument("--bgs_dchi2", help="minimum dchi2 for BGS_BRIGHT-21.5 or BGS_BRIGHT_MSTAR", default=40., type=float)
 
 
 parser.add_argument("--fillran", help="add imaging properties to randoms",default='n')
@@ -173,7 +174,7 @@ if args.redotar == 'y':
 mkfulld = True #make the 'full' catalog containing info on everything physically reachable by a fiber
 if args.fulld == 'n':
     mkfulld = False
-        
+    
     
 if mkfulld:
     common.printlog('making "full" catalog file for data',logger)    
@@ -226,6 +227,9 @@ ebits = mainp.ebits #extra mask bits we think should be applied
 
 tsnrcut = mainp.tsnrcut
 dchi2 = mainp.dchi2
+if type in ['BGS_BRIGHT-21.5', 'BGS_BRIGHT_MSTAR']:
+    print(f"Using self-defined dchi2: {dchi2}")
+    dchi2 = args.bgs_dchi2
 tsnrcol = mainp.tsnrcol        
 zmin = mainp.zmin
 zmax = mainp.zmax
