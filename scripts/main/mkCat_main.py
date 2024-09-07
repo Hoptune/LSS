@@ -80,8 +80,8 @@ parser.add_argument("--add_tlcomp", help="add completeness FRAC_TLOBS_TILES to r
 parser.add_argument("--bgs_zmin", help="minimum redshift for BGS_BRIGHT", default=0.01, type=float) 
 parser.add_argument("--bgs_zmax", help="maximum redshift for BGS_BRIGHT", default=0.5, type=float)
 
-parser.add_argument("--bgs_mag_bright", help="bright magnitude cut for BGS_BRIGHT-21.5", default=-99.0, type=float)
-parser.add_argument("--bgs_mag_faint", help="bright magnitude cut for BGS_BRIGHT-21.5", default=-21.5, type=float)
+parser.add_argument("--bgs_propcut_low", help="bgs property cut for BGS_BRIGHT-21.5, could be absolute magnitudes or stellar masses", default=-99.0, type=float)
+parser.add_argument("--bgs_propcut_high", help="bright magnitude cut for BGS_BRIGHT-21.5, could be absolute magnitudes or stellar masses", default=-21.5, type=float)
 parser.add_argument("--bgs_mag_zmin", help="minimum redshift for BGS_BRIGHT-21.5", default=0.1, type=float) 
 parser.add_argument("--bgs_mag_zmax", help="maximum redshift for BGS_BRIGHT-21.5", default=0.4, type=float)
 
@@ -602,11 +602,11 @@ if type == 'BGS_BRIGHT-21.5':# and args.survey == 'Y1': #and args.clusd == 'y':
         fin = fitsio.read(dirout+'BGS_BRIGHT_full'+args.use_map_veto+'.dat.fits')
         if args.absmagmd == 'phot':
             sel = fin['ABSMAG_RP1'] < -21.5
-        if args.absmagmd == 'spec':
-            sel = ((fin['ABSMAG01_SDSS_R'] +0.97*fin['Z_not4clus']-.095) < args.bgs_mag_faint) & \
-                  ((fin['ABSMAG01_SDSS_R'] +0.97*fin['Z_not4clus']-.095) > args.bgs_mag_bright) #-21.5
+        elif args.absmagmd == 'spec':
+            sel = ((fin['ABSMAG01_SDSS_R'] +0.97*fin['Z_not4clus']-.095) < args.bgs_propcut_high) & \
+                  ((fin['ABSMAG01_SDSS_R'] +0.97*fin['Z_not4clus']-.095) > args.bgs_propcut_low) #-21.5
             #sys.exit('need to code up using fastspecfit for abs mag selection!')
-        if args.absmagmd == 'nok':
+        elif args.absmagmd == 'nok':
             #don't use any k-correction at all, yields ~constant density
             from LSS.tabulated_cosmo import TabulatedDESI
             cosmo = TabulatedDESI()
@@ -621,6 +621,9 @@ if type == 'BGS_BRIGHT-21.5':# and args.survey == 'Y1': #and args.clusd == 'y':
             abr = r_dered -dm
             sel = abr < -21.6 +0.15*z2use
             sel &= z2use < 2
+        elif args.absmagmd != None:
+            sel = (fin[args.absmagmd] < args.bgs_propcut_high) & \
+                  (fin[args.absmagmd] > args.bgs_propcut_low)
         common.write_LSS(fin[sel],ffull)
 
     
