@@ -414,15 +414,17 @@ if  args.mkemlin == 'y':
                     logger.info('combining emline data for TILEID '+str(tile))
                     #tspec = ct.combEMdata_daily(str(tile),str(zdate),str(tdate))
                     tspec = ct.combEMdata_rel(str(tile),str(tdate),coaddir)
-                    if tspec:
-                        tspec['TILEID'] = tile
+                    if tspec is not None:
+                        #tspec['TILEID'] = tile
                         tspec = np.array(tspec)
+                        logger.info('tile '+str(tile)+' '+str(len(tspec.dtype.names))+' '+str(len(tspec)))
                         return tspec
                         #new = np.empty(len(tspec),dtype=specd.dtype)
                         #cols = specd.dtype.names
                         #for colname in cols:
                         #    new[colname][...] = tspec[colname][...]
                     else:
+                        logger.info('tile '+str(tile)+' failed for emline')
                         return None
                         #new = None
                     #return new
@@ -433,6 +435,19 @@ if  args.mkemlin == 'y':
                     for specd in executor.map(_get_tile, inds):
                         if specd is not None:
                             tl.append(np.array(specd))
+            #nms = list(tl[0].dtype.names)
+            #for t in tl:
+            #    nmsi = list(t.dtype.names)
+            #    if nmsi != nms:
+            #        logger.info(str(t[0]['TILEID'])+' has mismatched name list')
+            #    try:
+            #        temp = np.hstack([tl[0],t])
+            #    except:
+            #        logger.info(str(t[0]['TILEID'])+' and '+str(tl[0][0]['TILEID'])+' failed hstack')
+            #        logger.info(str(tl[0]))
+            #        logger.info(str(t))
+            #        break
+                
             specd = np.hstack(tl)
             kp = (specd['TARGETID'] > 0)
             specd = specd[kp]
@@ -944,7 +959,7 @@ if specrel != 'daily' and args.dospec == 'y':
             #tarf = Table.read(tarfo)
             tarfo = dailydir+'/datcomb_'+prog+'_tarwdup_zdone.fits'
             tarf = fitsio.read(tarfo.replace('global','dvs_ro'))#,columns=cols)
-            logger.info('loaded tarspecwdup file')
+            logger.info('loaded tarwdup file')
             #tarf['TILELOCID'] = 10000*tarf['TILEID'] +tarf['LOCATION']
             if tp == 'BGS_BRIGHT':
                 sel = tarf['BGS_TARGET'] & targetmask.bgs_mask[tp] > 0
@@ -963,15 +978,20 @@ if specrel != 'daily' and args.dospec == 'y':
                 try:
                     tarf.remove_columns([col] )#we get this where relevant from spec file
                 except:
-                    print('column '+col +' was not in stacked tarwdup table')    
+                    logger.info('column '+col +' was not in stacked tarwdup table')    
 
             #tarf.remove_columns(['ZWARN_MTL'])
             tarf['TILELOCID'] = 10000*tarf['TILEID'] +tarf['LOCATION']
             #specf.remove_columns(['PRIORITY'])
             tj = join(tarf,specf,keys=['TARGETID','LOCATION','TILEID'],join_type='left')
             del tarf
+            cols_fromspec = list(specf.dtype.names)
+            for col in cols_fromspec:
+                if np.ma.is_masked(tj[col]):
+                    tj[col] = tj[col].filled(999999)
+                    #logger.info(str(np.unique(tj[col],return_counts=True)))
             #del specf
-            print('joined tar and spec, now writing')
+            logger.info('joined tar and spec, now writing')
             #tj.write(outfs,format='fits', overwrite=True)
             common.write_LSS_scratchcp(tj,outfs,logger=logger)
             del tj

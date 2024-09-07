@@ -655,7 +655,7 @@ def combEMdata_rel(tile,tdate,coaddir='/global/cfs/cdirs/desi/spectro/redux/guad
             dl.append(d)
     if len(dl) > 0:
         dt = vstack(dl,metadata_conflicts='silent')
-        dt['TILEID'] = tile
+        dt['TILEID'] = int(tile)
         dt.remove_columns(remcol)
         return dt
     else:
@@ -1369,7 +1369,7 @@ def count_tiles_input(fjg,logger=None):
     fjg = fjg[np.argsort(fjg['TARGETID'])]
 
     tids = np.unique(fjg['TARGETID'])
-    common.printlog('going through '+str(len(fjg))+' rows with '+str(len(tids))+' unique targetid',logger)
+    common.printlog('counting tiles, going through '+str(len(fjg))+' rows with '+str(len(tids))+' unique targetid',logger)
     nloc = []#np.zeros(len(np.unique(f['TARGETID'])))
     nt = []
     tl = []
@@ -1384,26 +1384,27 @@ def count_tiles_input(fjg,logger=None):
         while fjg[i]['TARGETID'] == tids[ti]:
             nli += 1
             tls.append(fjg[i]['TILEID'])
-            tlis.append(fjg[i]['TILELOCID'])
+            #tlis.append(fjg[i]['TILELOCID'])
             i += 1
             if i == len(fjg):
                 break
         nloc.append(nli)
         tlsu = np.unique(tls)
-        tlisu = np.unique(tlis)
+        #tlisu = np.unique(tlis)
         nt.append(len(tlsu))
         tl.append("-".join(tlsu.astype(str)))
-        tli.append("-".join(tlisu.astype(str)))
+        #tli.append("-".join(tlisu.astype(str)))
 
         if ti%1000000 == 0:
             common.printlog(str(ti),logger)
         ti += 1
+    del fjg
     tc = Table()
     tc['TARGETID'] = tids
     tc['NTILE'] = nt
     tc['TILES'] = tl
-    tc['TILELOCIDS'] = tli
-
+    #tc['TILELOCIDS'] = tli
+    
     return tc
 
 def count_tiles_better(dr,pd,rann=0,specrel='daily',fibcol='COADD_FIBERSTATUS',px=False,survey='main',indir=None,gtl=None,badfib=None, prog_ = 'dark'):
@@ -2248,6 +2249,92 @@ def combran(tiles,rann,randir,ddir,tp,tmask,tc='SV3_DESI_TARGET',imask=False):
     print(np.unique(fu['rosette_number'],return_counts=True))
 
     fu.write(randir+str(rann)+'/rancomb_'+tp+'_Alltiles.fits',format='fits', overwrite=True)
+
+def mkfullran_prog(gtl,indir,rann,imbits,outf,pd,tlid_full=None,badfib=None,ftiles=None):
+    import LSS.common_tools as common
+    #import logging
+    logger = logging.getLogger('LSSran')
+
+
+
+    zf = indir.replace('global','dvs_ro')+'/rancomb_'+str(rann)+pd+'wdupspec_zdone.fits'
+    logger.info('about to load '+zf)
+    in_cols = ['LOCATION', 'FIBER', 'TARGETID', 'RA', 'DEC', 'TILEID', 'PRIORITY', 'TILELOCID']
+    dz = Table(fitsio.read(zf,columns=in_cols))
+    logger.info(dz.dtype.names)
+
+    cols = list(dz.dtype.names)
+ 
+
+    dz['TILELOCID'] = 10000*dz['TILEID'] +dz['LOCATION'] #reset it here in case was set by specdat and some matches were missing
+
+    wg = np.isin(dz['TILELOCID'],gtl)
+    if badfib is not None:
+        bad = np.isin(dz['FIBER'],badfib)
+        logger.info('number at bad fibers '+str(sum(bad)))
+        wg &= ~bad
+
+    dz['GOODHARDLOC'] = np.zeros(len(dz)).astype('bool')
+    dz['GOODHARDLOC'][wg] = 1
+    if ftiles is None:
+        logger.info('counting tiles from dz with columns '+str(dz.dtype.names))
+        dzpd = count_tiles_input(dz[wg],logger=logger)#.keep_columns(['TARGETID','TILEID','TILELOCID']))
+    else:
+        dzpd = Table.read(ftiles)
+
+
+    logger.info(str(dz.dtype.names))
+    p4sort = np.copy(dz['PRIORITY'] )
+    sel =  p4sort*0 != 0
+    p4sort[sel] = 999999
+    logger.info(str(np.sum(sel))+' had nan priority')
+    sel = p4sort <= 0
+    p4sort[sel] = 1
+    logger.info(str(np.sum(sel))+' had priority <= 0 set to 1 for sort')
+    dz['sort'] =  dz['GOODHARDLOC'] + 1/p4sort
+    #dz['sort'] =  dz['GOODPRI']*dz['GOODHARDLOC']*dz['ZPOSSLOC']#*(1+dz[tsnr])
+    logger.info(dz.dtype.names)
+    logger.info(str(rann)+' about to do sort')
+
+    dz.sort('sort') #should allow to later cut on tsnr for match to data
+    dz = unique(dz,keys=['TARGETID'],keep='last')
+    logger.info(str(rann)+' length after cutting to unique TARGETID '+str(len(dz)))
+    dz = join(dz,dzpd,keys=['TARGETID'],join_type='left')
+    
+    tin = np.isin(dz['TARGETID'],dzpd['TARGETID'])
+    dz['NTILE'][~tin] = 0
+    del dzpd
+    logger.info(str(rann)+' length after joining to tiles info '+str(len(dz)))
+    logger.info(str(rann)+' '+str(np.unique(dz['NTILE'])))
+
+    if len(imbits) > 0:
+        logger.info(str(rann)+' joining with original randoms to get mask properties')
+        dirrt='/dvs_ro/cfs/cdirs/desi/target/catalogs/dr9/0.49.0/randoms/resolve/'
+        tcol = ['TARGETID','MASKBITS','PHOTSYS','NOBS_G','NOBS_R','NOBS_Z'] #only including what are necessary for mask cuts for now
+        #tcol = ['TARGETID','EBV','WISEMASK_W1','WISEMASK_W2','BRICKID','PSFDEPTH_G','PSFDEPTH_R','PSFDEPTH_Z','GALDEPTH_G',\
+        #'GALDEPTH_R','GALDEPTH_Z','PSFDEPTH_W1','PSFDEPTH_W2','PSFSIZE_G','PSFSIZE_R','PSFSIZE_Z','MASKBITS','PHOTSYS','NOBS_G','NOBS_R','NOBS_Z']
+        tarf = fitsio.read(dirrt+'/randoms-1-'+str(rann)+'.fits',columns=tcol)
+        dz = join(dz,tarf,keys=['TARGETID'])
+        logger.info(str(rann)+' completed join with original randoms to get mask properties')
+        del tarf
+        dz = common.cutphotmask(dz,imbits,logger=logger)
+        logger.info(str(rann)+' length after cutting to based on imaging veto mask '+str(len(dz)))
+
+
+    if 'PHOTSYS' not in cols:
+        dz['PHOTSYS'] = 'N'
+        sel = dz['DEC'] < 32.375
+        wra = (dz['RA'] > 100-dz['DEC'])
+        wra &= (dz['RA'] < 280 +dz['DEC'])
+        sel |= ~wra
+        dz['PHOTSYS'][sel] = 'S'
+
+
+    common.write_LSS_scratchcp(dz,outf,logger=logger)
+    #dz.write(outf,format='fits', overwrite=True)
+    logger.info('wrote to '+outf)
+    del dz
+
 
 def mkfullran(gtl,lznp,indir,rann,imbits,outf,tp,pd,notqso='',maxp=3400,min_tsnr2=0,tlid_full=None,badfib=None,ftiles=None):
     import LSS.common_tools as common
@@ -3274,7 +3361,7 @@ def get_ELG_SSR_tile(ff,o2c_thresh,zmin=.6,zmax=1.5,tsnrcut=80):
         print(tid,ssr_t,ssr_t/ssr_all)
     return ff
 
-def add_zfail_weight2fullQSO(indir,version,qsocat,tsnrcut=80,readpars=False):
+def add_zfail_weight2fullQSO(indir,version,qsocat,tsnrcut=80,readpars=False,logger=None):
     import LSS.common_tools as common
     from LSS import ssr_tools_new
 
@@ -3356,11 +3443,11 @@ def add_zfail_weight2fullQSO(indir,version,qsocat,tsnrcut=80,readpars=False):
         
 
 
-    plt.plot(ff[selgz&selobs]['TSNR2_'+tp[:3]],ff[selgz&selobs]['WEIGHT_ZFAIL'],'k,')
-    plt.xlim(np.percentile(ff[selgz]['TSNR2_'+tp[:3]],0.5),np.percentile(ff[selgz]['TSNR2_'+tp[:3]],99))
-    plt.show()
+    #plt.plot(ff[selgz&selobs]['TSNR2_'+tp[:3]],ff[selgz&selobs]['WEIGHT_ZFAIL'],'k,')
+    #plt.xlim(np.percentile(ff[selgz]['TSNR2_'+tp[:3]],0.5),np.percentile(ff[selgz]['TSNR2_'+tp[:3]],99))
+    #plt.show()
     
-    common.write_LSS(ff,outdir+tp+'_full_noveto.dat.fits',comments='added ZFAIL weight')
+    common.write_LSS_scratchcp(ff,outdir+tp+'_full_noveto.dat.fits',logger=logger)
     ff.keep_columns(['TARGETID','WEIGHT_ZFAIL','mod_success_rate'])
     ffc = Table.read(outdir+tp+'_full.dat.fits')
     cols = list(ffc.dtype.names)
@@ -3369,7 +3456,7 @@ def add_zfail_weight2fullQSO(indir,version,qsocat,tsnrcut=80,readpars=False):
     if 'mod_success_rate' in cols:
         ffc.remove_columns(['mod_success_rate'])
     ffc = join(ffc,ff,keys=['TARGETID'],join_type='left')
-    common.write_LSS(ffc,outdir+tp+'_full.dat.fits',comments='added ZFAIL weight')
+    common.write_LSS_scratchcp(ffc,outdir+tp+'_full.dat.fits',comments='added ZFAIL weight',logger=logger)
 
     fname_mapveto = outdir+tp+'_full_HPmapcut.dat.fits'
     if os.path.isfile(fname_mapveto):
@@ -3381,11 +3468,11 @@ def add_zfail_weight2fullQSO(indir,version,qsocat,tsnrcut=80,readpars=False):
         if 'mod_success_rate' in cols:
             ffc.remove_columns(['mod_success_rate'])
         ffc = join(ffc,ff,keys=['TARGETID'],join_type='left')
-        common.write_LSS(ffc,fname_mapveto)#,comments='added ZFAIL weight')
+        common.write_LSS_scratchcp(ffc,fname_mapveto,logger=logger)#,comments='added ZFAIL weight')
  
 
 
-def add_zfail_weight2full(indir,tp='',tsnrcut=80,readpars=False,hpmapcut='_HPmapcut'):
+def add_zfail_weight2full(indir,tp='',tsnrcut=80,readpars=False,hpmapcut='_HPmapcut',logger=None):
     import LSS.common_tools as common
     from LSS import ssr_tools_new
     '''
@@ -3484,7 +3571,7 @@ def add_zfail_weight2full(indir,tp='',tsnrcut=80,readpars=False,hpmapcut='_HPmap
         #msr[selobs&selreg] =  np.array(ffwz['mod_success_rate'])
         #print(min(wzf),max(wzf))
         #s = 1
-    
+    common.printlog('model obtained',logger)
     if tp == 'BGS_BRIGHT-21.5':
         fullname = indir+tp+'_full'+hpmapcut+'.dat.fits'
     else:
@@ -3502,25 +3589,25 @@ def add_zfail_weight2full(indir,tp='',tsnrcut=80,readpars=False,hpmapcut='_HPmap
         wts,md = mod.add_modpre(ff[selobs&selreg])
         wzf[selobs&selreg] = wts
         msr[selobs&selreg] = md
-        print('compare good z frac to sum of model')
-        print(len(ff[selgz&selobs&selreg])/len(ff[selobs&selreg]),np.sum(msr[selobs&selreg])/len(ff[selobs&selreg]))
+        common.printlog('compare good z frac to sum of model',logger)
+        common.printlog(str(len(ff[selgz&selobs&selreg])/len(ff[selobs&selreg]))+','+str(np.sum(msr[selobs&selreg])/len(ff[selobs&selreg])),logger)
 
     ff['WEIGHT_ZFAIL'] = wzf
     ff['mod_success_rate'] = msr
     
     #print(len(ff[wz]),len(ff))
 
-    print('min/max of zfail weights:')
-    print(np.min(ff[selobs]['WEIGHT_ZFAIL']),np.max(ff[selobs]['WEIGHT_ZFAIL']))
+    common.printlog('min/max of zfail weights:',logger)
+    common.printlog(str(np.min(ff[selobs]['WEIGHT_ZFAIL']))+','+str(np.max(ff[selobs]['WEIGHT_ZFAIL'])),logger)
  
         
 
 
-    plt.plot(ff[selgz&selobs]['TSNR2_'+tp[:3]],ff[selgz&selobs]['WEIGHT_ZFAIL'],'k,')
-    plt.xlim(np.percentile(ff[selgz]['TSNR2_'+tp[:3]],0.5),np.percentile(ff[selgz]['TSNR2_'+tp[:3]],99))
-    plt.show()
+    #plt.plot(ff[selgz&selobs]['TSNR2_'+tp[:3]],ff[selgz&selobs]['WEIGHT_ZFAIL'],'k,')
+    #plt.xlim(np.percentile(ff[selgz]['TSNR2_'+tp[:3]],0.5),np.percentile(ff[selgz]['TSNR2_'+tp[:3]],99))
+    #plt.show()
     
-    common.write_LSS(ff,fullname)#,comments='added ZFAIL weight')
+    common.write_LSS_scratchcp(ff,fullname,logger=logger)#,comments='added ZFAIL weight')
     if tp != 'BGS_BRIGHT-21.5':
         ff.keep_columns(['TARGETID','WEIGHT_ZFAIL','mod_success_rate'])
         ffc = Table.read(indir+tp+'_full.dat.fits')
@@ -3530,7 +3617,7 @@ def add_zfail_weight2full(indir,tp='',tsnrcut=80,readpars=False,hpmapcut='_HPmap
         if 'mod_success_rate' in cols:
             ffc.remove_columns(['mod_success_rate'])
         ffc = join(ffc,ff,keys=['TARGETID'],join_type='left')
-        common.write_LSS(ffc,indir+tp+'_full.dat.fits')#,comments='added ZFAIL weight')
+        common.write_LSS_scratchcp(ffc,indir+tp+'_full.dat.fits',logger=logger)#,comments='added ZFAIL weight')
         fname_mapveto = indir+tp+'_full_HPmapcut.dat.fits'
         if os.path.isfile(fname_mapveto):
             ff.keep_columns(['TARGETID','WEIGHT_ZFAIL','mod_success_rate'])
@@ -3541,7 +3628,7 @@ def add_zfail_weight2full(indir,tp='',tsnrcut=80,readpars=False,hpmapcut='_HPmap
             if 'mod_success_rate' in cols:
                 ffc.remove_columns(['mod_success_rate'])
             ffc = join(ffc,ff,keys=['TARGETID'],join_type='left')
-            common.write_LSS(ffc,fname_mapveto)#,comments='added ZFAIL weight')
+            common.write_LSS_scratchcp(ffc,fname_mapveto,logger=logger)#,comments='added ZFAIL weight')
     
     
 #     if dchi2 is not None:
@@ -3979,7 +4066,7 @@ def mkclusran(flin,fl,rann,rcols=['Z','WEIGHT'],zmask=False,tsnrcut=80,tsnrcol='
         ws = 'utlid_'
     in_fname = flin+str(rann)+'_full'+use_map_veto+'.ran.fits'
     
-    ran_cols = ['RA','DEC','TARGETID','TILEID','NTILE','PHOTSYS',tsnrcol]
+    ran_cols = ['RA','DEC','TARGETID','TILEID','NTILE','PHOTSYS']#,tsnrcol]
     if add_tlobs == 'n':
         try:
             fitsio.read(in_fname.replace('global','dvs_ro'),columns=['FRAC_TLOBS_TILES'],rows=1)
@@ -3990,13 +4077,13 @@ def mkclusran(flin,fl,rann,rcols=['Z','WEIGHT'],zmask=False,tsnrcut=80,tsnrcol='
             ran_cols.append('TILES')    
     else:
         ran_cols.append('TILES')
-    ffr = Table(fitsio.read(in_fname.replace('global','dvs_ro'),columns=ran_cols))
+    ffc = Table(fitsio.read(in_fname.replace('global','dvs_ro'),columns=ran_cols))
     common.printlog('loaded '+in_fname,logger)
-    wz = ffr[tsnrcol] > tsnrcut
-    ffc = ffr[wz]
-    common.printlog(str(rann)+' length after,before tsnr cut:'+' '+str(len(ffc))+','+str(len(ffr)),logger)
+    #wz = ffr[tsnrcol] > tsnrcut
+    #ffc = ffr#[wz]
+    #common.printlog(str(rann)+' length after,before tsnr cut:'+' '+str(len(ffc))+','+str(len(ffr)),logger)
     #print(len(ffc),len(ffr))
-    del ffr
+    #del ffr
     if add_tlobs == 'y':
         
         tlf = fitsio.read(flin+'frac_tlobs.fits')

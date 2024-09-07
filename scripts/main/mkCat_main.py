@@ -441,15 +441,15 @@ lssmapdirout = dirout+'/hpmaps/'
 nside = 256
 if args.mkHPmaps == 'y':
     from LSS.imaging.sky_maps import create_pixweight_file, rancat_names_to_pixweight_name
-    logf.write('made healpix property maps for '+tp+' '+str(datetime.now()))
+    #logf.write('made healpix property maps for '+tp+' '+str(datetime.now()))
     if not os.path.exists(lssmapdirout):
         os.mkdir(lssmapdirout)
-        print('made '+lssmapdirout)
+        common.printlog('made '+lssmapdirout,logger)
     lssmapdir = '/global/cfs/cdirs/desi/survey/catalogs/external_input_maps/'
     rancatname = dirout+tracer_clus+'_*_full.ran.fits'
     rancatlist = sorted(glob.glob(rancatname))
-    print(dirout)
-    print(rancatlist)
+    #print(dirout)
+    #print(rancatlist)
     fieldslist = allmapcols
     masklist = list(np.zeros(len(fieldslist),dtype=int))
     
@@ -479,7 +479,7 @@ if args.apply_map_veto == 'y':
         fin = fin = fout.replace('global','dvs_ro')   
         fout = fout.replace('_full','_full_HPmapcut')          
         common.apply_map_veto(fin,fout,mapn,maps,mapcuts,logger=logger)
-        print('random veto '+str(rn)+' done')
+        common.printlog('random veto '+str(rn)+' done',logger)
     if args.par == 'n':
         for rn in range(rm,rx):
             _parfun(rn)
@@ -722,9 +722,9 @@ if args.add_weight_zfail == 'y':
     if args.readpars == 'y':
         readpars = True
     if type[:3] == 'QSO':
-        ct.add_zfail_weight2fullQSO(ldirspec,version,mainp.qsozf,tsnrcut=tsnrcut,readpars=readpars) 
+        ct.add_zfail_weight2fullQSO(ldirspec,version,mainp.qsozf,tsnrcut=tsnrcut,readpars=readpars,logger=logger) 
     else:
-        ct.add_zfail_weight2full(dirout,tp=type+notqso,tsnrcut=tsnrcut,readpars=readpars)   
+        ct.add_zfail_weight2full(dirout,tp=type+notqso,tsnrcut=tsnrcut,readpars=readpars,logger=logger)   
 
 if args.usemaps == None:
     fit_maps = mainp.fit_maps
