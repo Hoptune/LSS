@@ -80,10 +80,10 @@ parser.add_argument("--add_tlcomp", help="add completeness FRAC_TLOBS_TILES to r
 parser.add_argument("--bgs_zmin", help="minimum redshift for BGS_BRIGHT", default=0.01, type=float) 
 parser.add_argument("--bgs_zmax", help="maximum redshift for BGS_BRIGHT", default=0.5, type=float)
 
-parser.add_argument("--bgs_propcut_low", help="bgs property cut for BGS_BRIGHT-21.5, could be absolute magnitudes or stellar masses", default=-99.0, type=float)
-parser.add_argument("--bgs_propcut_high", help="bright magnitude cut for BGS_BRIGHT-21.5, could be absolute magnitudes or stellar masses", default=-21.5, type=float)
-parser.add_argument("--bgs_mag_zmin", help="minimum redshift for BGS_BRIGHT-21.5", default=0.1, type=float) 
-parser.add_argument("--bgs_mag_zmax", help="maximum redshift for BGS_BRIGHT-21.5", default=0.4, type=float)
+parser.add_argument("--bgs_propcut_low", help="bgs property cut for BGS_BRIGHT-21.5 or BGS_BRIGHT_MSTAR, could be absolute magnitudes or stellar masses", default=-99.0, type=float)
+parser.add_argument("--bgs_propcut_high", help="bright magnitude cut for BGS_BRIGHT-21.5 or BGS_BRIGHT_MSTAR, could be absolute magnitudes or stellar masses", default=-21.5, type=float)
+parser.add_argument("--bgs_mag_zmin", help="minimum redshift for BGS_BRIGHT-21.5 or BGS_BRIGHT_MSTAR", default=0.1, type=float) 
+parser.add_argument("--bgs_mag_zmax", help="maximum redshift for BGS_BRIGHT-21.5 or BGS_BRIGHT_MSTAR", default=0.4, type=float)
 
 
 parser.add_argument("--fillran", help="add imaging properties to randoms",default='n')
@@ -296,7 +296,7 @@ tardir = '/global/cfs/cdirs/desi/target/catalogs/dr9/'+tarver+'/targets/main/res
 tarf = '/global/cfs/cdirs/desi/survey/catalogs/main/LSS/'+type +'targetsDR9v'+tarver.strip('.')+'.fits'
 
 mktar = True
-if os.path.isfile(tarf) and redotar == False or type == 'BGS_BRIGHT-21.5':
+if os.path.isfile(tarf) and redotar == False or type == 'BGS_BRIGHT-21.5' or type == 'BGS_BRIGHT_MSTAR':
     mktar = False
 #if type == 'BGS_BRIGHT':
 #    mktar = False    
@@ -595,7 +595,7 @@ if args.add_ke == 'y':
             #if args.test == 'n':
         common.write_LSS(res,fn,comments=['added k+e corrections'])
 
-if type == 'BGS_BRIGHT-21.5':# and args.survey == 'Y1': #and args.clusd == 'y':
+if type == 'BGS_BRIGHT-21.5' or type == 'BGS_BRIGHT_MSTAR':# and args.survey == 'Y1': #and args.clusd == 'y':
     ffull = dirout+type+notqso+'_full'+args.use_map_veto+'.dat.fits'
     if os.path.isfile(ffull) == False or args.redoBGS215 == 'y':
         logf.write('making BGS_BRIGHT-21.5 full data catalog for '+str(datetime.now()))
@@ -621,7 +621,7 @@ if type == 'BGS_BRIGHT-21.5':# and args.survey == 'Y1': #and args.clusd == 'y':
             abr = r_dered -dm
             sel = abr < -21.6 +0.15*z2use
             sel &= z2use < 2
-        elif args.absmagmd != None:
+        elif args.absmagmd != None and type == 'BGS_BRIGHT_MSTAR':
             sel = (fin[args.absmagmd] < args.bgs_propcut_high) & \
                   (fin[args.absmagmd] > args.bgs_propcut_low)
         common.write_LSS(fin[sel],ffull)
@@ -740,7 +740,7 @@ zl = (zmin,zmax)
 
 
 tpstr = tracer_clus
-if tracer_clus == 'BGS_BRIGHT-21.5':
+if tracer_clus == 'BGS_BRIGHT-21.5' or tracer_clus == 'BGS_BRIGHT_MSTAR':
     tpstr = 'BGS_BRIGHT'
 nside = 256
 
@@ -760,7 +760,7 @@ if type[:3] == 'LRG':
         zrl = [(0.4,0.6),(0.6,0.8),(0.8,1.1)] 
     else:
         zrl = [(0.4,1.1)]  
-if type == 'BGS_BRIGHT-21.5':
+if type == 'BGS_BRIGHT-21.5' or type == 'BGS_BRIGHT_MSTAR':
     # zrl = [(0.1,0.4)]
     zrl = [(args.bgs_mag_zmin,args.bgs_mag_zmax)]
     zmin = args.bgs_mag_zmin
@@ -1191,7 +1191,7 @@ if mkclusran:
 #         dchi2 = 40
 #         tsnrcut = 1000
     ranin = dirin + args.type + notqso + '_'
-    if args.type == 'BGS_BRIGHT-21.5':
+    if args.type == 'BGS_BRIGHT-21.5' or args.type == 'BGS_BRIGHT_MSTAR':
         ranin = dirin + 'BGS_BRIGHT' + notqso + '_'
 
     clus_arrays = [fitsio.read(dirout +args.extra_clus_dir+ type + notqso+'_clustering.dat.fits')]
