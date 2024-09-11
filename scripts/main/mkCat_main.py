@@ -625,7 +625,7 @@ if type == 'BGS_BRIGHT-21.5' or type == 'BGS_BRIGHT_MSTAR':# and args.survey == 
             abr = r_dered -dm
             sel = abr < -21.6 +0.15*z2use
             sel &= z2use < 2
-        elif args.absmagmd != None and type == 'BGS_BRIGHT_MSTAR':
+        elif args.absmagmd != None:
             sel = (fin[args.absmagmd] < args.bgs_propcut_high) & \
                   (fin[args.absmagmd] > args.bgs_propcut_low)
         common.write_LSS(fin[sel],ffull)
