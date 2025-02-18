@@ -580,6 +580,7 @@ if __name__ == '__main__':
     parser.add_argument('--region', help='regions; by default, run on N, S; pass NS to run on concatenated N + S', type=str, nargs='*', choices=['N', 'S', 'NS','NGC','SGC','NGCS','DES','SGCnotDES','ALL'], default=None)
     parser.add_argument('--zlim', help='z-limits, or options for z-limits, e.g. "highz", "lowz", "fullonly"', type=str, nargs='*', default=None)
     parser.add_argument('--maglim', help='absolute r-band magnitude limits', type=str, nargs='*', default=None)
+    parser.add_argument('--magkey', help='column name to use for absolute r-band magnitude limits', type=str, nargs='*', default='ABSMAG_R')
     parser.add_argument('--option', help='place to put extra options for cutting catalogs', default=None)
     parser.add_argument('--corr_type', help='correlation type', type=str, nargs='*', choices=['smu', 'rppi', 'theta'], default=['smu'])
     parser.add_argument('--weight_type', help='types of weights to use; use "default_angular_bitwise" for PIP with angular upweighting; "default" just uses WEIGHT column', type=str, default='default')
@@ -729,7 +730,7 @@ if __name__ == '__main__':
                     logger.info('Computing correlation function {} in region {} in redshift range {}.'.format(corr_type, region, (zmin, zmax)))
                 edges = get_edges(corr_type=corr_type, bin_type=args.bin_type)
             
-                result, wang = compute_correlation_function(corr_type, edges=edges, distance=distance, nrandoms=args.nran, split_randoms_above=args.split_ran_above, nthreads=nthreads, gpu=gpu, region=region, zlim=(zmin, zmax), maglim=maglims, weight_type=args.weight_type, njack=args.njack, wang=wang, mpicomm=mpicomm, mpiroot=mpiroot, option=option, rpcut=args.rpcut, thetacut=args.thetacut,nreal=args.nreal, **catalog_kwargs)
+                result, wang = compute_correlation_function(corr_type, edges=edges, distance=distance, nrandoms=args.nran, split_randoms_above=args.split_ran_above, nthreads=nthreads, gpu=gpu, region=region, zlim=(zmin, zmax), maglim=maglims, magkey=args.magkey, weight_type=args.weight_type, njack=args.njack, wang=wang, mpicomm=mpicomm, mpiroot=mpiroot, option=option, rpcut=args.rpcut, thetacut=args.thetacut,nreal=args.nreal, **catalog_kwargs)
                 # Save pair counts
                 if mpicomm is None or mpicomm.rank == mpiroot:
                     result.save(corr_fn(file_type='npy', region=region, out_dir=os.path.join(out_dir, corr_type), **base_file_kwargs))
