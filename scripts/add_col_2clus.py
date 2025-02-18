@@ -50,6 +50,7 @@ parser.add_argument("--inmode",help="string that denotes type of input file; '_c
 parser.add_argument("--par",help="process randoms in parallel?",default='n')
 parser.add_argument("--minr", help="minimum number for random files",default=0)
 parser.add_argument("--maxr", help="maximum for random files, 18 are available (use parallel script for all)",default=18) 
+parser.add_argument("--matchfname", help="Full path to load the file for matching and adding colname.") 
 
 
 args = parser.parse_args()
@@ -68,7 +69,10 @@ dirout = ldirspec+'LSScats/'+version+'/'
 dirin = dirout
 dirout += args.blind
 
-indata = Table(fitsio.read(dirin+args.tracer+args.inmode+'.dat.fits',columns=['TARGETID',args.col_name]))
+if args.matchfname is not None:
+	indata = Table(fitsio.read(args.matchfname,columns=['TARGETID',args.col_name]))
+else:
+	indata = Table(fitsio.read(dirin+args.tracer+args.inmode+'.dat.fits',columns=['TARGETID',args.col_name]))
 
 regl = ['NGC','SGC']
 
