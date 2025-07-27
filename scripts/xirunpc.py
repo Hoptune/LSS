@@ -516,6 +516,7 @@ def compute_correlation_function(corr_type, edges, distance, nthreads=8, gpu=Fal
                     else:
                         array = np.concatenate(arrays, axis=0)
                     tmp_randoms_kwargs[name] = array
+            print(edges[1])
             tmp = TwoPointCorrelationFunction(corr_type, edges, data_positions1=data_positions1, data_weights1=data_weights1, data_samples1=data_samples1,
                                               data_positions2=data_positions2, data_weights2=data_weights2, data_samples2=data_samples2,
                                               engine='corrfunc', position_type='rdd', nthreads=nthreads, gpu=gpu, dtype=dtype, **tmp_randoms_kwargs, **kwargs,
@@ -526,7 +527,7 @@ def compute_correlation_function(corr_type, edges, distance, nthreads=8, gpu=Fal
     return results[0].concatenate_x(*results), wang
 
 
-def get_edges(corr_type='smu', bin_type='lin'):
+def get_edges(corr_type='smu', bin_type='lin', pimax=40):
 
     if bin_type == 'log':
         sedges = np.geomspace(0.01, 100., 49)
@@ -538,9 +539,9 @@ def get_edges(corr_type='smu', bin_type='lin'):
         edges = (sedges, np.linspace(-1., 1., 201)) #s is input edges and mu evenly spaced between -1 and 1
     elif corr_type == 'rppi':
         if bin_type == 'lin':
-            edges = (sedges, np.linspace(-40., 40, 101)) #transverse and radial separations are coded to be the same here
+            edges = (sedges, np.linspace(-pimax, pimax, 101)) #transverse and radial separations are coded to be the same here
         else:
-            edges = (sedges, np.linspace(-40., 40., 81))
+            edges = (sedges, np.linspace(-pimax, pimax, int(pimax)*2+1))
     elif corr_type == 'theta':
         edges = (np.linspace(0., 4., 101),)
     else:
@@ -548,7 +549,7 @@ def get_edges(corr_type='smu', bin_type='lin'):
     return edges
 
 
-def corr_fn(file_type='npy', region='', tracer='ELG', tracer2=None, zmin=0, zmax=np.inf, recon_dir='n',rec_type=False, weight_type='default', bin_type='lin', njack=0, nrandoms=8, split_randoms_above=10, out_dir='.', option=None, wang=None, rpcut=None, thetacut=None):
+def corr_fn(file_type='npy', region='', tracer='ELG', tracer2=None, zmin=0, zmax=np.inf, magkey=None, magmin=None, magmax=None, pimax=40, recon_dir='n',rec_type=False, weight_type='default', bin_type='lin', njack=0, nrandoms=8, split_randoms_above=10, out_dir='.', option=None, wang=None, rpcut=None, thetacut=None):
     if tracer2: tracer += '_' + tracer2
     if rec_type: tracer += '_' + rec_type
     if region: tracer += '_' + region
@@ -558,7 +559,7 @@ def corr_fn(file_type='npy', region='', tracer='ELG', tracer2=None, zmin=0, zmax
     #    out_dir += recon_dir+'/'
     split = '_split{:.0f}'.format(split_randoms_above) if split_randoms_above < np.inf else ''
     wang = '{}_'.format(wang) if wang is not None else ''
-    root = '{}{}_{}_{}_{}_{}_njack{:d}_nran{:d}{}'.format(wang, tracer, zmin, zmax, weight_type, bin_type, njack, nrandoms, split)
+    root = '{}{}_{}_{}_{}_{}-{}_pimax{}_{}_{}_njack{:d}_nran{:d}{}'.format(wang, tracer, zmin, zmax, magkey, magmin, magmax, pimax, weight_type, bin_type, njack, nrandoms, split)
     if rpcut is not None:
         root += '_rpcut{}'.format(rpcut)
     if thetacut is not None:
@@ -580,7 +581,7 @@ if __name__ == '__main__':
     parser.add_argument('--region', help='regions; by default, run on N, S; pass NS to run on concatenated N + S', type=str, nargs='*', choices=['N', 'S', 'NS','NGC','SGC','NGCS','DES','SGCnotDES','ALL'], default=None)
     parser.add_argument('--zlim', help='z-limits, or options for z-limits, e.g. "highz", "lowz", "fullonly"', type=str, nargs='*', default=None)
     parser.add_argument('--maglim', help='absolute r-band magnitude limits', type=str, nargs='*', default=None)
-    parser.add_argument('--magkey', help='column name to use for absolute r-band magnitude limits', type=str, nargs='*', default='ABSMAG_R')
+    parser.add_argument('--magkey', help='column name to use for absolute r-band magnitude limits', type=str, default='ABSMAG_R')
     parser.add_argument('--option', help='place to put extra options for cutting catalogs', default=None)
     parser.add_argument('--corr_type', help='correlation type', type=str, nargs='*', choices=['smu', 'rppi', 'theta'], default=['smu'])
     parser.add_argument('--weight_type', help='types of weights to use; use "default_angular_bitwise" for PIP with angular upweighting; "default" just uses WEIGHT column', type=str, default='default')
@@ -603,6 +604,7 @@ if __name__ == '__main__':
     #only relevant for reconstruction
     parser.add_argument('--rec_type', help='reconstruction algorithm + reconstruction convention, but only if included in the catalog filename between dots, otherwise leave blank', choices=['IFTPrecsym', 'IFTPreciso','IFTrecsym', 'IFTreciso', 'MGrecsym', 'MGreciso'], type=str, default=None)
     parser.add_argument('--recon_dir', help='if recon catalogs are in a subdirectory, put that here', type=str, default='n')
+    parser.add_argument('--pimax', help='pimax for calculating rppi', type=float, default=None)
 
     parser.add_argument('--rpcut', help='apply the rp-cut', type=float, default=None)
     parser.add_argument('--thetacut', help='apply the theta-cut (more up-to-date fibre collision correction), standard: 0.05', type=float, default=None)
@@ -716,7 +718,7 @@ if __name__ == '__main__':
         logger.info('Computing correlation functions {} in regions {} in redshift ranges {}.'.format(args.corr_type, regions, zlims))
 
     for zmin, zmax in zlims:
-        base_file_kwargs = dict(tracer=tracer, tracer2=tracer2, zmin=zmin, zmax=zmax, recon_dir=args.recon_dir,rec_type=args.rec_type, weight_type=args.weight_type, bin_type=args.bin_type, njack=args.njack, nrandoms=args.nran, split_randoms_above=args.split_ran_above, option=option, rpcut=args.rpcut, thetacut=args.thetacut)
+        base_file_kwargs = dict(tracer=tracer, tracer2=tracer2, zmin=zmin, zmax=zmax, magkey=args.magkey, magmin=magmin, magmax=magmax, recon_dir=args.recon_dir,rec_type=args.rec_type, weight_type=args.weight_type, bin_type=args.bin_type, njack=args.njack, nrandoms=args.nran, split_randoms_above=args.split_ran_above, option=option, rpcut=args.rpcut, thetacut=args.thetacut)
         for region in regions:
             if args.use_arrays == 'y':
                 if region == "N":
@@ -728,8 +730,8 @@ if __name__ == '__main__':
             for corr_type in args.corr_type:
                 if mpicomm is None or mpicomm.rank == mpiroot:
                     logger.info('Computing correlation function {} in region {} in redshift range {}.'.format(corr_type, region, (zmin, zmax)))
-                edges = get_edges(corr_type=corr_type, bin_type=args.bin_type)
-            
+                edges = get_edges(corr_type=corr_type, bin_type=args.bin_type, pimax=args.pimax)
+                print(edges[1])
                 result, wang = compute_correlation_function(corr_type, edges=edges, distance=distance, nrandoms=args.nran, split_randoms_above=args.split_ran_above, nthreads=nthreads, gpu=gpu, region=region, zlim=(zmin, zmax), maglim=maglims, magkey=args.magkey, weight_type=args.weight_type, njack=args.njack, wang=wang, mpicomm=mpicomm, mpiroot=mpiroot, option=option, rpcut=args.rpcut, thetacut=args.thetacut,nreal=args.nreal, **catalog_kwargs)
                 # Save pair counts
                 if mpicomm is None or mpicomm.rank == mpiroot:
@@ -773,7 +775,7 @@ if __name__ == '__main__':
                                 rebinned.save_txt(fn_txt, wedges=(-1., -2./3, -1./3, 0., 1./3, 2./3, 1.))
                             elif corr_type == 'rppi':
                                 fn_txt = corr_fn(file_type='wp', **txt_kwargs)
-                                rebinned.save_txt(fn_txt, pimax=40.)
+                                rebinned.save_txt(fn_txt, pimax=pimax)
                                 for pifac in pi_rebinning_factors:
                                     rebinned = result[:(result.shape[0]//factor)*factor:factor,:(result.shape[1]//pifac)*pifac:pifac]
                                     txt_kwargs.update(bin_type=args.bin_type+str(factor)+'_'+str(pifac))
@@ -787,7 +789,7 @@ if __name__ == '__main__':
                                 if corr_type == 'smu':
                                     sep, xis = rebinned(ells=(0, 2, 4), return_sep=True, return_std=False)
                                 elif corr_type == 'rppi':
-                                    sep, xis = rebinned(pimax=40, return_sep=True, return_std=False)
+                                    sep, xis = rebinned(pimax=pimax, return_sep=True, return_std=False)
                                 else:
                                     sep, xis = rebinned(return_sep=True, return_std=False)
                                 if args.bin_type == 'log':

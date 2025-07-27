@@ -74,10 +74,11 @@ if args.matchfname is not None:
 else:
 	indata = Table(fitsio.read(dirin+args.tracer+args.inmode+'.dat.fits',columns=['TARGETID',args.col_name]))
 
-regl = ['NGC','SGC']
+# regl = ['_NGC','_SGC', '']
+regl = ['']
 
 for reg in regl:
-    fname = dirout+args.tracer+'_'+reg+'_clustering.dat.fits'
+    fname = dirout+args.tracer+''+reg+'_clustering.dat.fits'
     cd = Table(fitsio.read(fname))
     dojoin = 1
     if args.col_name in list(cd.dtype.names):
@@ -97,7 +98,7 @@ indata.rename_column('TARGETID', 'TARGETID_DATA')
 
 def _add2ran(rn):
     for reg in regl:
-        fname = dirout+args.tracer+'_'+reg+'_'+str(rn)+'_clustering.ran.fits'
+        fname = dirout+args.tracer+reg+'_'+str(rn)+'_clustering.ran.fits'
         cd = Table(fitsio.read(fname))
         if args.col_name in list(cd.dtype.names):
             if args.replace == 'y':

@@ -166,6 +166,7 @@ def _format_bitweights(bitweights):
 
 
 def get_clustering_positions_weights(catalog, distance, zlim=(0., np.inf),maglim=None, magkey='ABSMAG_R', weight_type='default', name='data', return_mask=False, option=None,P0=None):
+    # print(magkey, catalog[magkey])
     logger.info('get pos P0 is '+str(P0))
     if maglim is None:
         mask = (catalog['Z'] >= zlim[0]) & (catalog['Z'] < zlim[1])
