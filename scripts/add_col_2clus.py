@@ -74,8 +74,8 @@ if args.matchfname is not None:
 else:
 	indata = Table(fitsio.read(dirin+args.tracer+args.inmode+'.dat.fits',columns=['TARGETID',args.col_name]))
 
-# regl = ['_NGC','_SGC', '']
-regl = ['']
+regl = ['_NGC','_SGC', '']
+# regl = ['']
 
 for reg in regl:
     fname = dirout+args.tracer+''+reg+'_clustering.dat.fits'
