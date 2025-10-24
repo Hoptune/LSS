@@ -115,9 +115,11 @@ def _add2ran(rn):
 
         common.write_LSS(cd,fname)
 
-inds = np.arange(rm,rx)
+inds = np.arange(rm,rx+1)
+# print(inds)
 if args.par == 'n':
     for rn in inds:
+        print(f"processing random {rn}")
         _add2ran(rn)
 if args.par == 'y':
 	from multiprocessing import Pool

@@ -530,7 +530,8 @@ def compute_correlation_function(corr_type, edges, distance, nthreads=8, gpu=Fal
 def get_edges(corr_type='smu', bin_type='lin', pimax=40):
 
     if bin_type == 'log':
-        sedges = np.geomspace(0.01, 100., 49)
+        # sedges = np.geomspace(0.01, 100., 49)
+        sedges = np.logspace(-2, np.log10(30), 16)
     elif bin_type == 'lin':
         sedges = np.linspace(0., 200, 201)
     else:
@@ -708,7 +709,8 @@ if __name__ == '__main__':
         magmax = float(args.maglim[1])
         maglims = (magmin,magmax)
     else:
-        maglims = None
+        maglims, magmin, magmax = None, None, None
+        
 
     zlims = list(zip(zlims[:-1], zlims[1:])) #this doesn't run the whole range
     #zlims = list(zip(zlims[:-1], zlims[1:])) + ([(zlims[0], zlims[-1])] if len(zlims) > 2 else []) # len(zlims) == 2 == single redshift range
@@ -775,7 +777,7 @@ if __name__ == '__main__':
                                 rebinned.save_txt(fn_txt, wedges=(-1., -2./3, -1./3, 0., 1./3, 2./3, 1.))
                             elif corr_type == 'rppi':
                                 fn_txt = corr_fn(file_type='wp', **txt_kwargs)
-                                rebinned.save_txt(fn_txt, pimax=pimax)
+                                rebinned.save_txt(fn_txt, pimax=args.pimax)
                                 for pifac in pi_rebinning_factors:
                                     rebinned = result[:(result.shape[0]//factor)*factor:factor,:(result.shape[1]//pifac)*pifac:pifac]
                                     txt_kwargs.update(bin_type=args.bin_type+str(factor)+'_'+str(pifac))
@@ -789,7 +791,7 @@ if __name__ == '__main__':
                                 if corr_type == 'smu':
                                     sep, xis = rebinned(ells=(0, 2, 4), return_sep=True, return_std=False)
                                 elif corr_type == 'rppi':
-                                    sep, xis = rebinned(pimax=pimax, return_sep=True, return_std=False)
+                                    sep, xis = rebinned(pimax=args.pimax, return_sep=True, return_std=False)
                                 else:
                                     sep, xis = rebinned(return_sep=True, return_std=False)
                                 if args.bin_type == 'log':
