@@ -114,6 +114,8 @@ def select_region(ra, dec, region):
             mask = sel_ngc
         if region == 'SGC':
             mask = ~sel_ngc        
+    elif region == '':
+        mask = np.ones_like(ra).astype(bool)
     else:
         raise ValueError('Input region must be one of ["DN", "DS","NGC","SGC"].')
     return mask
